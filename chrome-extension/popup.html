@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 280px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    h3 {
+      margin: 0 0 12px 0;
+      font-size: 14px;
+      color: #333;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+      margin-bottom: 8px;
+    }
+    .btn-primary {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #2563eb;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      display: none;
+    }
+    .status.success {
+      display: block;
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .status.error {
+      display: block;
+      background: #fee2e2;
+      color: #991b1b;
+    }
+  </style>
+</head>
+<body>
+  <h3>DOM to Figma</h3>
+  <button id="extractPage" class="btn btn-primary">전체 페이지 추출</button>
+  <div id="status" class="status"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

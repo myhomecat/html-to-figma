@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+      padding: 16px;
+      background: #fff;
+    }
+    h3 {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #333;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      padding: 12px;
+      border: 1px solid #e5e5e5;
+      border-radius: 6px;
+      font-family: 'Monaco', 'Menlo', monospace;
+      font-size: 11px;
+      resize: vertical;
+      margin-bottom: 12px;
+    }
+    textarea:focus {
+      outline: none;
+      border-color: #18a0fb;
+    }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      flex: 1;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-primary {
+      background: #18a0fb;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #0d8de3;
+    }
+    .btn-secondary {
+      background: #f0f0f0;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background: #e5e5e5;
+    }
+    .status {
+      margin-top: 12px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      display: none;
+    }
+    .status.success {
+      display: block;
+      background: #e6f7ed;
+      color: #1e7e34;
+    }
+    .status.error {
+      display: block;
+      background: #fce8e8;
+      color: #c53030;
+    }
+    .status.info {
+      display: block;
+      background: #e8f4fd;
+      color: #1a73e8;
+    }
+  </style>
+</head>
+<body>
+  <h3>JSON 데이터 붙여넣기</h3>
+  <textarea id="json" placeholder="크롬 익스텐션에서 복사한 JSON을 여기에 붙여넣으세요..."></textarea>
+  <div class="btn-row">
+    <button id="paste" class="btn btn-secondary">붙여넣기</button>
+    <button id="import" class="btn btn-primary">Import</button>
+  </div>
+  <div id="status" class="status"></div>
+
+  <script>
+    const jsonEl = document.getElementById('json');
+    const statusEl = document.getElementById('status');
+
+    function showStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = `status ${type}`;
+    }
+
+    // 붙여넣기 버튼
+    document.getElementById('paste').onclick = async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        jsonEl.value = text;
+        showStatus('붙여넣기 완료', 'success');
+      } catch (err) {
+        showStatus('클립보드 접근 권한이 필요합니다', 'error');
+      }
+    };
+
+    // Import 버튼
+    document.getElementById('import').onclick = () => {
+      const json = jsonEl.value.trim();
+
+      if (!json) {
+        showStatus('JSON 데이터를 입력해주세요', 'error');
+        return;
+      }
+
+      try {
+        JSON.parse(json);
+        showStatus('변환 중...', 'info');
+        parent.postMessage({ pluginMessage: { type: 'import', data: json } }, '*');
+      } catch (err) {
+        showStatus('유효하지 않은 JSON 형식입니다', 'error');
+      }
+    };
+
+    // 플러그인 메시지 수신
+    window.onmessage = (event) => {
+      const msg = event.data.pluginMessage;
+      if (msg.type === 'success') {
+        showStatus(`완료! ${msg.count}개 노드 생성됨`, 'success');
+      } else if (msg.type === 'error') {
+        showStatus(`오류: ${msg.message}`, 'error');
+      }
+    };
+  </script>
+</body>
+</html>
