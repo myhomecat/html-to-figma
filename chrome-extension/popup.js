@@ -52,8 +52,8 @@ function extractFullPage() {
     // div는 항상 FRAME으로 유지 (레이아웃 구조 보존)
     if (tagName === 'div') return 'FRAME';
 
-    // 텍스트 태그들 (div 제외)
-    const textTags = ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'label', 'a', 'button', 'li', 'td', 'th', 'strong', 'em', 'b', 'i'];
+    // 텍스트 태그들 (div 제외, td/th는 FRAME으로 처리하여 padding 적용)
+    const textTags = ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'label', 'a', 'button', 'li', 'strong', 'em', 'b', 'i'];
 
     // 텍스트 태그이고 자식이 없거나 직접 텍스트가 있는 경우 → TEXT
     if (textTags.includes(tagName)) {
