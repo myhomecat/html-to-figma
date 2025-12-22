@@ -63,6 +63,9 @@ async function createNode(data, parent) {
     case 'SELECT':
       node = await createSelectNode(data);
       break;
+    case 'FILE_INPUT':
+      node = await createFileInputNode(data);
+      break;
     case 'BUTTON':
       node = await createButtonNode(data);
       break;
@@ -368,6 +371,103 @@ async function createSelectNode(data) {
     text.x = 12;
     text.y = (frame.height - text.height) / 2;
   }
+
+  return frame;
+}
+
+// File Input 노드 (파일 선택 버튼 포함)
+async function createFileInputNode(data) {
+  const frame = figma.createFrame();
+  frame.name = data.name || 'FileInput';
+  frame.resize(data.width || 200, data.height || 40);
+
+  // 배경색
+  if (data.fills && data.fills.length > 0) {
+    frame.fills = convertFills(data.fills);
+  } else {
+    frame.fills = [{
+      type: 'SOLID',
+      color: { r: 1, g: 1, b: 1 }
+    }];
+  }
+
+  // 테두리
+  if (data.strokes && data.strokes.length > 0) {
+    frame.strokes = convertFills(data.strokes);
+    frame.strokeWeight = data.strokes[0].width || 1;
+  } else {
+    frame.strokes = [{
+      type: 'SOLID',
+      color: { r: 0.8, g: 0.8, b: 0.8 }
+    }];
+    frame.strokeWeight = 1;
+  }
+
+  frame.cornerRadius = data.cornerRadius || 4;
+
+  // "파일 선택" 버튼 생성
+  const button = figma.createFrame();
+  button.name = 'file-button';
+  button.resize(80, Math.max(data.height - 8, 24));
+  button.fills = [{
+    type: 'SOLID',
+    color: { r: 0.95, g: 0.95, b: 0.95 }
+  }];
+  button.strokes = [{
+    type: 'SOLID',
+    color: { r: 0.8, g: 0.8, b: 0.8 }
+  }];
+  button.strokeWeight = 1;
+  button.cornerRadius = 3;
+
+  // 버튼 텍스트
+  const buttonText = figma.createText();
+  buttonText.name = 'button-text';
+
+  const fontFamily = data.fontFamily || 'Inter';
+  try {
+    await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+    buttonText.fontName = { family: fontFamily, style: 'Regular' };
+  } catch (e) {
+    buttonText.fontName = { family: 'Inter', style: 'Regular' };
+  }
+
+  buttonText.characters = data.buttonText || '파일 선택';
+  buttonText.fontSize = Math.min(data.fontSize || 14, 12);
+  buttonText.fills = [{
+    type: 'SOLID',
+    color: { r: 0.2, g: 0.2, b: 0.2 }
+  }];
+
+  button.appendChild(buttonText);
+  buttonText.x = (button.width - buttonText.width) / 2;
+  buttonText.y = (button.height - buttonText.height) / 2;
+
+  frame.appendChild(button);
+  button.x = 4;
+  button.y = (frame.height - button.height) / 2;
+
+  // 선택된 파일명 또는 "선택된 파일 없음" 텍스트
+  const fileNameText = figma.createText();
+  fileNameText.name = 'file-name';
+
+  try {
+    await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+    fileNameText.fontName = { family: fontFamily, style: 'Regular' };
+  } catch (e) {
+    fileNameText.fontName = { family: 'Inter', style: 'Regular' };
+  }
+
+  fileNameText.characters = data.fileName || '선택된 파일 없음';
+  fileNameText.fontSize = data.fontSize || 14;
+  fileNameText.fills = [{
+    type: 'SOLID',
+    color: data.fileName ? { r: 0.2, g: 0.2, b: 0.2 } : { r: 0.6, g: 0.6, b: 0.6 }
+  }];
+
+  frame.appendChild(fileNameText);
+  fileNameText.x = button.x + button.width + 8;
+  fileNameText.y = (frame.height - fileNameText.height) / 2;
 
   return frame;
 }

@@ -47,7 +47,12 @@ function extractFullPage() {
     // 이미지, SVG, 인풋 등은 우선 처리
     if (tagName === 'img') return 'IMAGE';
     if (tagName === 'svg') return 'VECTOR';
-    if (tagName === 'input' || tagName === 'textarea') return 'INPUT';
+    if (tagName === 'input') {
+      // file input은 별도 타입으로 처리 (Shadow DOM 버튼 때문)
+      if (element.type === 'file') return 'FILE_INPUT';
+      return 'INPUT';
+    }
+    if (tagName === 'textarea') return 'INPUT';
     if (tagName === 'select') return 'SELECT';
 
     // div는 항상 FRAME으로 유지 (레이아웃 구조 보존)
@@ -178,6 +183,16 @@ function extractFullPage() {
         node.placeholder = element.placeholder || '';
       }
 
+      node.fontSize = parseInt(style.fontSize) || 14;
+      node.fontFamily = (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim();
+      node.textColor = extractColor(style.color);
+    }
+
+    // FILE_INPUT 요소 - 파일 선택 버튼 UI 정보 추출
+    if (nodeType === 'FILE_INPUT') {
+      // 선택된 파일명 (있으면)
+      node.fileName = element.files && element.files.length > 0 ? element.files[0].name : '';
+      node.buttonText = '파일 선택';
       node.fontSize = parseInt(style.fontSize) || 14;
       node.fontFamily = (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim();
       node.textColor = extractColor(style.color);
