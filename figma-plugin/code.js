@@ -58,7 +58,7 @@ async function createNode(data, parent) {
       node = createImagePlaceholder(data);
       break;
     case 'INPUT':
-      node = createInputNode(data);
+      node = await createInputNode(data);
       break;
     case 'BUTTON':
       node = await createButtonNode(data);
@@ -227,7 +227,7 @@ function createImagePlaceholder(data) {
 }
 
 // Input 노드
-function createInputNode(data) {
+async function createInputNode(data) {
   const frame = figma.createFrame();
   frame.name = 'Input';
   frame.resize(data.width || 200, data.height || 40);
@@ -241,6 +241,32 @@ function createInputNode(data) {
   }];
   frame.strokeWeight = 1;
   frame.cornerRadius = data.cornerRadius || 4;
+
+  // placeholder 텍스트 추가
+  if (data.placeholder) {
+    const text = figma.createText();
+    text.name = 'placeholder';
+
+    const fontFamily = data.fontFamily || 'Inter';
+    try {
+      await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+      text.fontName = { family: fontFamily, style: 'Regular' };
+    } catch (e) {
+      text.fontName = { family: 'Inter', style: 'Regular' };
+    }
+
+    text.characters = data.placeholder;
+    text.fontSize = data.fontSize || 14;
+    text.fills = [{
+      type: 'SOLID',
+      color: { r: 0.6, g: 0.6, b: 0.6 }
+    }];
+
+    frame.appendChild(text);
+    text.x = 12;
+    text.y = (frame.height - text.height) / 2;
+  }
+
   return frame;
 }
 

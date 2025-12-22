@@ -155,6 +155,30 @@ function extractFullPage() {
       node.textAlign = style.textAlign || 'left';
     }
 
+    // INPUT/TEXTAREA placeholder 추출
+    if (nodeType === 'INPUT') {
+      const inputType = element.type || 'text';
+
+      // date 계열 input의 기본 placeholder 설정 (브라우저 네이티브 UI는 Shadow DOM이라 접근 불가)
+      if (inputType === 'date' && !element.value) {
+        node.placeholder = '연 . 월 . 일';
+      } else if (inputType === 'datetime-local' && !element.value) {
+        node.placeholder = '연 . 월 . 일   --:--';
+      } else if (inputType === 'time' && !element.value) {
+        node.placeholder = '--:--';
+      } else if (inputType === 'month' && !element.value) {
+        node.placeholder = '연 . 월';
+      } else if (inputType === 'week' && !element.value) {
+        node.placeholder = '연 . 주';
+      } else {
+        node.placeholder = element.placeholder || '';
+      }
+
+      node.fontSize = parseInt(style.fontSize) || 14;
+      node.fontFamily = (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim();
+      node.textColor = extractColor(style.color);
+    }
+
     // 자식 요소
     if (nodeType !== 'TEXT') {
       const children = [];
