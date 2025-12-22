@@ -60,6 +60,9 @@ async function createNode(data, parent) {
     case 'INPUT':
       node = await createInputNode(data);
       break;
+    case 'SELECT':
+      node = await createSelectNode(data);
+      break;
     case 'BUTTON':
       node = await createButtonNode(data);
       break;
@@ -229,23 +232,40 @@ function createImagePlaceholder(data) {
 // Input 노드
 async function createInputNode(data) {
   const frame = figma.createFrame();
-  frame.name = 'Input';
+  frame.name = data.name || 'Input';
   frame.resize(data.width || 200, data.height || 40);
-  frame.fills = [{
-    type: 'SOLID',
-    color: { r: 1, g: 1, b: 1 }
-  }];
-  frame.strokes = [{
-    type: 'SOLID',
-    color: { r: 0.8, g: 0.8, b: 0.8 }
-  }];
-  frame.strokeWeight = 1;
+
+  // 배경색
+  if (data.fills && data.fills.length > 0) {
+    frame.fills = convertFills(data.fills);
+  } else {
+    frame.fills = [{
+      type: 'SOLID',
+      color: { r: 1, g: 1, b: 1 }
+    }];
+  }
+
+  // 테두리
+  if (data.strokes && data.strokes.length > 0) {
+    frame.strokes = convertFills(data.strokes);
+    frame.strokeWeight = data.strokes[0].width || 1;
+  } else {
+    frame.strokes = [{
+      type: 'SOLID',
+      color: { r: 0.8, g: 0.8, b: 0.8 }
+    }];
+    frame.strokeWeight = 1;
+  }
+
   frame.cornerRadius = data.cornerRadius || 4;
 
-  // placeholder 텍스트 추가
-  if (data.placeholder) {
+  // value가 있으면 value 표시, 없으면 placeholder 표시
+  const displayText = data.value || data.placeholder || '';
+  const isPlaceholder = !data.value && data.placeholder;
+
+  if (displayText) {
     const text = figma.createText();
-    text.name = 'placeholder';
+    text.name = isPlaceholder ? 'placeholder' : 'value';
 
     const fontFamily = data.fontFamily || 'Inter';
     try {
@@ -255,12 +275,94 @@ async function createInputNode(data) {
       text.fontName = { family: 'Inter', style: 'Regular' };
     }
 
-    text.characters = data.placeholder;
+    text.characters = displayText;
     text.fontSize = data.fontSize || 14;
-    text.fills = [{
+
+    // placeholder는 회색, value는 텍스트 색상
+    if (isPlaceholder) {
+      text.fills = [{
+        type: 'SOLID',
+        color: { r: 0.6, g: 0.6, b: 0.6 }
+      }];
+    } else if (data.textColor) {
+      text.fills = [{
+        type: 'SOLID',
+        color: data.textColor
+      }];
+    } else {
+      text.fills = [{
+        type: 'SOLID',
+        color: { r: 0.2, g: 0.2, b: 0.2 }
+      }];
+    }
+
+    frame.appendChild(text);
+    text.x = 12;
+    text.y = (frame.height - text.height) / 2;
+  }
+
+  return frame;
+}
+
+// Select 노드
+async function createSelectNode(data) {
+  const frame = figma.createFrame();
+  frame.name = data.name || 'Select';
+  frame.resize(data.width || 200, data.height || 40);
+
+  // 배경색
+  if (data.fills && data.fills.length > 0) {
+    frame.fills = convertFills(data.fills);
+  } else {
+    frame.fills = [{
       type: 'SOLID',
-      color: { r: 0.6, g: 0.6, b: 0.6 }
+      color: { r: 1, g: 1, b: 1 }
     }];
+  }
+
+  // 테두리
+  if (data.strokes && data.strokes.length > 0) {
+    frame.strokes = convertFills(data.strokes);
+    frame.strokeWeight = data.strokes[0].width || 1;
+  } else {
+    frame.strokes = [{
+      type: 'SOLID',
+      color: { r: 0.8, g: 0.8, b: 0.8 }
+    }];
+    frame.strokeWeight = 1;
+  }
+
+  frame.cornerRadius = data.cornerRadius || 4;
+
+  // 선택된 값 표시
+  const displayText = data.value || '';
+
+  if (displayText) {
+    const text = figma.createText();
+    text.name = 'selected-value';
+
+    const fontFamily = data.fontFamily || 'Inter';
+    try {
+      await figma.loadFontAsync({ family: fontFamily, style: 'Regular' });
+      text.fontName = { family: fontFamily, style: 'Regular' };
+    } catch (e) {
+      text.fontName = { family: 'Inter', style: 'Regular' };
+    }
+
+    text.characters = displayText;
+    text.fontSize = data.fontSize || 14;
+
+    if (data.textColor) {
+      text.fills = [{
+        type: 'SOLID',
+        color: data.textColor
+      }];
+    } else {
+      text.fills = [{
+        type: 'SOLID',
+        color: { r: 0.2, g: 0.2, b: 0.2 }
+      }];
+    }
 
     frame.appendChild(text);
     text.x = 12;

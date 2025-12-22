@@ -48,6 +48,7 @@ function extractFullPage() {
     if (tagName === 'img') return 'IMAGE';
     if (tagName === 'svg') return 'VECTOR';
     if (tagName === 'input' || tagName === 'textarea') return 'INPUT';
+    if (tagName === 'select') return 'SELECT';
 
     // div는 항상 FRAME으로 유지 (레이아웃 구조 보존)
     if (tagName === 'div') return 'FRAME';
@@ -155,9 +156,12 @@ function extractFullPage() {
       node.textAlign = style.textAlign || 'left';
     }
 
-    // INPUT/TEXTAREA placeholder 추출
+    // INPUT/TEXTAREA value 및 placeholder 추출
     if (nodeType === 'INPUT') {
       const inputType = element.type || 'text';
+
+      // 실제 입력된 값 추출
+      node.value = element.value || '';
 
       // date 계열 input의 기본 placeholder 설정 (브라우저 네이티브 UI는 Shadow DOM이라 접근 불가)
       if (inputType === 'date' && !element.value) {
@@ -179,8 +183,18 @@ function extractFullPage() {
       node.textColor = extractColor(style.color);
     }
 
-    // 자식 요소
-    if (nodeType !== 'TEXT') {
+    // SELECT 요소 - 현재 선택된 값만 추출
+    if (nodeType === 'SELECT') {
+      const selectedOption = element.options[element.selectedIndex];
+      node.value = selectedOption ? selectedOption.text : '';
+      node.selectedValue = element.value || '';
+      node.fontSize = parseInt(style.fontSize) || 14;
+      node.fontFamily = (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim();
+      node.textColor = extractColor(style.color);
+    }
+
+    // 자식 요소 (SELECT는 option 자식을 무시)
+    if (nodeType !== 'TEXT' && nodeType !== 'SELECT') {
       const children = [];
       for (const child of element.children) {
         const childNode = traverseDOM(child, rect);
