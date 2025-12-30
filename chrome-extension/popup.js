@@ -46,7 +46,7 @@ function extractFullPage() {
 
     // 이미지, SVG, 인풋 등은 우선 처리
     if (tagName === 'img') return 'IMAGE';
-    if (tagName === 'svg') return 'VECTOR';
+    if (tagName === 'svg') return 'SVG';
     if (tagName === 'input') {
       // file input은 별도 타입으로 처리 (Shadow DOM 버튼 때문)
       if (element.type === 'file') return 'FILE_INPUT';
@@ -61,8 +61,12 @@ function extractFullPage() {
     // 텍스트 태그들 (div 제외, td/th는 FRAME으로 처리하여 padding 적용)
     const textTags = ['p', 'span', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'label', 'a', 'button', 'li', 'strong', 'em', 'b', 'i'];
 
+    // 내부에 SVG가 있는지 확인 (버튼/링크 + 아이콘 조합)
+    const hasSvgChild = element.querySelector('svg') !== null;
+
     // 텍스트 태그이고 자식이 없거나 직접 텍스트가 있는 경우 → TEXT
-    if (textTags.includes(tagName)) {
+    // 단, SVG 자식이 있으면 FRAME으로 처리하여 SVG도 추출
+    if (textTags.includes(tagName) && !hasSvgChild) {
       if (element.children.length === 0 && element.innerText && element.innerText.trim()) {
         return 'TEXT';
       }
@@ -125,6 +129,83 @@ function extractFullPage() {
     return isNaN(radius) ? 0 : radius;
   }
 
+  // textAlign 정규화 (start→left, end→right)
+  function normalizeTextAlign(align) {
+    if (align === 'start') return 'left';
+    if (align === 'end') return 'right';
+    return align || 'left';
+  }
+
+  // SVG 요소에 computed style 인라인 적용
+  function extractSvgWithStyles(svgElement) {
+    // SVG 복제
+    const clone = svgElement.cloneNode(true);
+
+    // 부모의 color (currentColor 용)
+    const parentStyle = window.getComputedStyle(svgElement.parentElement || svgElement);
+    const currentColor = parentStyle.color || 'rgb(0, 0, 0)';
+
+    // SVG 자체와 모든 자식 요소에 스타일 적용
+    const allElements = [clone, ...clone.querySelectorAll('*')];
+
+    allElements.forEach((el, index) => {
+      // 원본 요소 찾기
+      let originalEl;
+      if (index === 0) {
+        originalEl = svgElement;
+      } else {
+        const selector = el.tagName.toLowerCase();
+        const originals = svgElement.querySelectorAll(selector);
+        originalEl = originals[Array.from(clone.querySelectorAll(selector)).indexOf(el)];
+      }
+
+      if (!originalEl) return;
+
+      const computed = window.getComputedStyle(originalEl);
+
+      // fill 처리
+      const fill = computed.fill;
+      if (fill && fill !== 'none') {
+        if (fill === 'currentColor' || fill.includes('currentcolor')) {
+          el.setAttribute('fill', currentColor);
+        } else if (fill.startsWith('rgb')) {
+          el.setAttribute('fill', fill);
+        }
+      } else if (fill === 'none') {
+        el.setAttribute('fill', 'none');
+      }
+
+      // stroke 처리
+      const stroke = computed.stroke;
+      if (stroke && stroke !== 'none') {
+        if (stroke === 'currentColor' || stroke.includes('currentcolor')) {
+          el.setAttribute('stroke', currentColor);
+        } else if (stroke.startsWith('rgb')) {
+          el.setAttribute('stroke', stroke);
+        }
+      }
+
+      // stroke-width 처리
+      const strokeWidth = computed.strokeWidth;
+      if (strokeWidth && strokeWidth !== '0px') {
+        el.setAttribute('stroke-width', strokeWidth);
+      }
+
+      // opacity 처리
+      const fillOpacity = computed.fillOpacity;
+      if (fillOpacity && fillOpacity !== '1') {
+        el.setAttribute('fill-opacity', fillOpacity);
+      }
+
+      const strokeOpacity = computed.strokeOpacity;
+      if (strokeOpacity && strokeOpacity !== '1') {
+        el.setAttribute('stroke-opacity', strokeOpacity);
+      }
+    });
+
+    return clone.outerHTML;
+  }
+
   // DOM 순회 및 변환
   function traverseDOM(element, parentRect = null) {
     const style = window.getComputedStyle(element);
@@ -158,7 +239,12 @@ function extractFullPage() {
       node.fontFamily = fontFamily.split(',')[0].replace(/['"]/g, '').trim() || 'Inter';
       node.fontWeight = style.fontWeight || '400';
       node.textColor = extractColor(style.color);
-      node.textAlign = style.textAlign || 'left';
+      node.textAlign = normalizeTextAlign(style.textAlign);
+    }
+
+    // SVG 노드 - 전체 SVG 문자열 추출 (색상 인라인 적용)
+    if (nodeType === 'SVG') {
+      node.svgString = extractSvgWithStyles(element);
     }
 
     // INPUT/TEXTAREA value 및 placeholder 추출
@@ -218,29 +304,62 @@ function extractFullPage() {
         }
       }
 
-      // FRAME인데 직접 텍스트 노드가 있으면 → 전체 innerText를 TEXT로 생성
+      // FRAME인데 직접 텍스트 노드가 있으면 → TEXT 노드 추가
       // (혼합 콘텐츠: 텍스트 + 인라인 요소가 섞인 경우 처리)
+      // 단, SVG 자식이 있으면 SVG는 유지하고 텍스트만 추가
       if (hasDirectTextContent(element)) {
-        // 자식 요소들 대신 전체 텍스트를 하나의 TEXT로 처리
-        children.length = 0; // 기존 자식 비우기
-        children.push({
-          type: 'TEXT',
-          name: 'text',
-          x: parseInt(style.paddingLeft) || 0,
-          y: parseInt(style.paddingTop) || 0,
-          width: rect.width - (parseInt(style.paddingLeft) || 0) - (parseInt(style.paddingRight) || 0),
-          height: rect.height - (parseInt(style.paddingTop) || 0) - (parseInt(style.paddingBottom) || 0),
-          text: element.innerText.trim(),
-          fontSize: parseInt(style.fontSize) || 14,
-          fontFamily: (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim(),
-          fontWeight: style.fontWeight || '400',
-          textColor: extractColor(style.color),
-          textAlign: style.textAlign || 'left',
-          fills: [],
-          strokes: [],
-          cornerRadius: 0,
-          opacity: 1
-        });
+        const hasSvgInChildren = children.some(c => c.type === 'SVG');
+
+        if (hasSvgInChildren) {
+          // SVG가 있으면 SVG 유지하고 텍스트 노드는 Range API로 실제 위치 추출
+          for (const node of element.childNodes) {
+            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              const textRect = range.getBoundingClientRect();
+
+              children.push({
+                type: 'TEXT',
+                name: 'text',
+                x: Math.round(textRect.left - rect.left),
+                y: Math.round(textRect.top - rect.top),
+                width: Math.round(textRect.width),
+                height: Math.round(textRect.height),
+                text: node.textContent.trim(),
+                fontSize: parseInt(style.fontSize) || 14,
+                fontFamily: (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim(),
+                fontWeight: style.fontWeight || '400',
+                textColor: extractColor(style.color),
+                textAlign: normalizeTextAlign(style.textAlign),
+                fills: [],
+                strokes: [],
+                cornerRadius: 0,
+                opacity: 1
+              });
+            }
+          }
+        } else {
+          // SVG가 없으면 기존 로직: 자식 비우고 텍스트만
+          children.length = 0;
+          children.push({
+            type: 'TEXT',
+            name: 'text',
+            x: parseInt(style.paddingLeft) || 0,
+            y: parseInt(style.paddingTop) || 0,
+            width: rect.width - (parseInt(style.paddingLeft) || 0) - (parseInt(style.paddingRight) || 0),
+            height: rect.height - (parseInt(style.paddingTop) || 0) - (parseInt(style.paddingBottom) || 0),
+            text: element.innerText.trim(),
+            fontSize: parseInt(style.fontSize) || 14,
+            fontFamily: (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim(),
+            fontWeight: style.fontWeight || '400',
+            textColor: extractColor(style.color),
+            textAlign: normalizeTextAlign(style.textAlign),
+            fills: [],
+            strokes: [],
+            cornerRadius: 0,
+            opacity: 1
+          });
+        }
       }
       // FRAME인데 자식 요소가 없고 텍스트가 있으면 → 내부에 TEXT 노드 생성
       else if (children.length === 0 && element.innerText && element.innerText.trim()) {
@@ -256,7 +375,7 @@ function extractFullPage() {
           fontFamily: (style.fontFamily || 'Inter').split(',')[0].replace(/['"]/g, '').trim(),
           fontWeight: style.fontWeight || '400',
           textColor: extractColor(style.color),
-          textAlign: style.textAlign || 'left',
+          textAlign: normalizeTextAlign(style.textAlign),
           fills: [],
           strokes: [],
           cornerRadius: 0,

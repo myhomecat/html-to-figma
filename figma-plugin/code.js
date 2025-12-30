@@ -69,6 +69,9 @@ async function createNode(data, parent) {
     case 'BUTTON':
       node = await createButtonNode(data);
       break;
+    case 'SVG':
+      node = createSvgNode(data);
+      break;
     default:
       node = createFrameNode(data);
   }
@@ -229,6 +232,48 @@ function createImagePlaceholder(data) {
     color: { r: 0.9, g: 0.9, b: 0.9 }
   }];
   rect.cornerRadius = data.cornerRadius || 0;
+  return rect;
+}
+
+// SVG 노드 생성
+function createSvgNode(data) {
+  if (data.svgString) {
+    try {
+      // figma.createNodeFromSvg로 SVG 문자열을 Figma 노드로 변환
+      const svgNode = figma.createNodeFromSvg(data.svgString);
+      svgNode.name = data.name || 'SVG';
+
+      // 원본 크기가 있으면 리사이즈
+      if (data.width && data.height) {
+        svgNode.resize(data.width, data.height);
+      }
+
+      return svgNode;
+    } catch (e) {
+      // SVG 파싱 실패시 플레이스홀더 반환
+      console.error('SVG parsing failed:', e);
+      return createSvgPlaceholder(data);
+    }
+  }
+
+  return createSvgPlaceholder(data);
+}
+
+// SVG 플레이스홀더 (파싱 실패시)
+function createSvgPlaceholder(data) {
+  const rect = figma.createRectangle();
+  rect.name = 'SVG Placeholder';
+  rect.resize(data.width || 100, data.height || 100);
+  rect.fills = [{
+    type: 'SOLID',
+    color: { r: 0.85, g: 0.9, b: 0.95 }
+  }];
+  rect.strokes = [{
+    type: 'SOLID',
+    color: { r: 0.6, g: 0.7, b: 0.8 }
+  }];
+  rect.strokeWeight = 1;
+  rect.dashPattern = [4, 4];
   return rect;
 }
 
